@@ -64,6 +64,7 @@ void UTP_WeaponComponent::Fire()
 			AnimInstance->Montage_Play(FireAnimation, 1.f);
 		}
 	}
+	return;
 }
 
 bool UTP_WeaponComponent::AttachWeapon(AMeshCuttingCharacter* TargetCharacter)
