@@ -3,27 +3,25 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "GameFramework/Pawn.h"
 #include "Components/BoxComponent.h"
 #include "ProceduralMeshComponent.h"
-
-#include "Uni_CuttingMeshes_Character.generated.h"
+#include "Mesh_Cutting_Pawn_Uni.generated.h"
 
 UCLASS()
-class MESHCUTTING_API AUni_CuttingMeshes_Character : public ACharacter
+class MESHCUTTING_API AMesh_Cutting_Pawn_Uni : public APawn
 {
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
-	AUni_CuttingMeshes_Character();
+	// Sets default values for this pawn's properties
+	AMesh_Cutting_Pawn_Uni();
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	//All Box Variables
 	float boxWidth;
-	
+
 	FVector lastImpactPoint;
 	FVector boxOrigin;
 
@@ -53,7 +51,4 @@ public:
 	UBoxComponent* box;
 	UPROPERTY(EditAnywhere, Category = "Components")
 	UActorComponent* hitComponent;
-
-
-
 };
