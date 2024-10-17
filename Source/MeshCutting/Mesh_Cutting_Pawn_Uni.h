@@ -32,11 +32,16 @@ protected:
 	bool hitActorCutable;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	bool holding;
+	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
+	bool pickedUp = false;
 	//Lists
 	TArray<UProceduralMeshComponent> cutMeshes;
 	TArray<FVector>	cutMeshesOrigin;
 	TArray<FRotator> cutMeshesRoation;
 	TArray<AActor> lastHitActor;
+
+	//open and closing gate
+	bool gateOpen = false;
 
 public:	
 	// Called every frame
@@ -46,8 +51,12 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	void Start_Cutting();
 	void Stop_Cutting();
+	void SetUpCutting();
+	void SetUpDebug();
+	UFUNCTION(BlueprintCallable, category = "MyBlueprintLibary")
+	void PickedUp(AActor* attackToComponent);
 
-	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
 	UBoxComponent* box;
 	UPROPERTY(EditAnywhere, Category = "Components")
 	UActorComponent* hitComponent;
