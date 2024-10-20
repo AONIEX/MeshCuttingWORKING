@@ -21,28 +21,31 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	float boxWidth;
 
-	FVector lastImpactPoint;
-	FVector boxOrigin;
 
-	FRotator boxRotation;
+	//Variables
+	float m_boxWidth = 5;
+
+	FVector m_lastImpactPoint;
+	FVector m_boxOrigin;
+
+	FRotator m_boxRotation;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	bool isCutting = true;
+	bool m_isCutting = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	bool hitActorCutable;
+	bool m_hitActorCutable;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	bool holding;
+	bool m_holding;
 	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
-	bool pickedUp = false;
+	bool m_pickedUp = false;
 	//Lists
-	TArray<UProceduralMeshComponent> cutMeshes;
-	TArray<FVector>	cutMeshesOrigin;
-	TArray<FRotator> cutMeshesRoation;
-	TArray<AActor> lastHitActor;
+	TArray<UProceduralMeshComponent> m_cutMeshes;
+	TArray<FVector>	m_cutMeshesOrigin;
+	TArray<FRotator> m_cutMeshesRoation;
+	TArray<AActor> m_lastHitActor;
 
 	//open and closing gate
-	bool gateOpen = false;
+	bool m_gateOpen = false;
 
 public:
 	// Called every frame

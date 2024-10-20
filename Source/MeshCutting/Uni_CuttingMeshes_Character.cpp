@@ -15,7 +15,7 @@ AUni_CuttingMeshes_Character::AUni_CuttingMeshes_Character()
 
 	//RootComponent = box;
 	// Set the size of the box
-	box->SetBoxExtent(FVector(50.0f, 50.0f, 50.0f));
+	box->SetBoxExtent(FVector(32.0f, 32.0f, 32.0f));
 	box->SetGenerateOverlapEvents(true);
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -25,7 +25,6 @@ AUni_CuttingMeshes_Character::AUni_CuttingMeshes_Character()
 // Called when the game starts or when spawned
 void AUni_CuttingMeshes_Character::BeginPlay()
 {
-	FVector BoxExtent = box->GetScaledBoxExtent();
 
 	Super::BeginPlay();
 	box->SetCollisionProfileName(TEXT("OverlapAll"));
@@ -36,10 +35,10 @@ void AUni_CuttingMeshes_Character::BeginPlay()
 void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (gateOpen) {
+	if (m_gateOpen) {
 
 		SetUpCutting();
-
+		SetUpDebug();
 		//Visualisng DebugBox And Cut Area
 	}
 }
@@ -58,7 +57,7 @@ void AUni_CuttingMeshes_Character::SetupPlayerInputComponent(UInputComponent* Pl
 
 void AUni_CuttingMeshes_Character::Start_Cutting()
 {
-	gateOpen = true;
+	m_gateOpen = true;
 	//if (pickedUp) {
 	box->SetCollisionProfileName(TEXT("OverlapAll"));
 	//}
@@ -68,21 +67,21 @@ void AUni_CuttingMeshes_Character::Start_Cutting()
 
 void AUni_CuttingMeshes_Character::Stop_Cutting()
 {
-	gateOpen = false;
+	m_gateOpen = false;
 
 	//if (pickedUp) {
 
 	UE_LOG(LogTemp, Warning, TEXT("Stop_Cutting called"));
-	hitActorCutable = false;
+	m_hitActorCutable = false;
 
-	if (isCutting) {
+	if (m_isCutting) {
 		//
 		//DRAWING THE CUTOUT BOX IN DEBUG FOR TESTING - START
 		//Drawing the debug box with the quat(Quaternion) for the rotation
-		DrawDebugBox(GetWorld(), box->GetComponentLocation(), box->GetScaledBoxExtent(), box->GetComponentQuat(), FColor::Green, false, 3.0f, 0, 4);
+		DrawDebugBox(GetWorld(), box->GetComponentLocation(), box->GetScaledBoxExtent(), box->GetComponentQuat(), FColor::Red, false, 3.0f, 0, 4);
 		//DRAWING THE CUTOUT BOX IN DEBUG FOR TESTING - END
 		//
-
+		m_isCutting = false;
 	}
 	//}
 }
@@ -102,50 +101,47 @@ void AUni_CuttingMeshes_Character::SetUpCutting()
 	collisionParams.AddIgnoredActor(this);
 	if (GetWorld()->LineTraceSingleByChannel(hitResult, start, end, ECC_Visibility, collisionParams))
 	{
-		DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Red, false, 0.2f, 0, 1.0f);
+		DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Green, false, 0.1f, 0, 1.0f);
 		// Check if something was hit
 		if (hitResult.GetActor())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *hitResult.GetActor()->GetName());
-			lastImpactPoint = hitResult.ImpactPoint;
+			//UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *hitResult.GetActor()->GetName());
+			m_lastImpactPoint = hitResult.ImpactPoint;
 			//getting the procedural mesh component from the actor
 			UProceduralMeshComponent* ProcMeshComp = Cast<UProceduralMeshComponent>(hitResult.GetActor()->GetComponentByClass(UProceduralMeshComponent::StaticClass()));
 			if (ProcMeshComp)//making sure there is a procedural mesh component
 			{
-				if (!isCutting) {
-					isCutting = true;
-					boxOrigin = hitResult.ImpactPoint;
+				if (!m_isCutting) {
 
-					//Projecting the Vector onto the plane Variables
-					FVector normalizedNormal = hitResult.ImpactNormal.GetSafeNormal();
-
-					// Calculate the distance from the vector to the plane
-					float distance = FVector::DotProduct(GetActorRightVector(), normalizedNormal);
-
-					// Project the vector onto the plane
-					FVector projectedVector = GetActorRightVector() - distance * normalizedNormal;
+					m_isCutting = true;
+					m_boxOrigin = hitResult.ImpactPoint;
 
 
 #pragma region Making the Rotation from Y to Z
-					//Making the Rotation from Y to Z
-					FVector normalizedY = projectedVector.GetSafeNormal();
-					FVector normalizedZ = hitResult.ImpactNormal.GetSafeNormal();
-					// Calculate the X vector using the cross product
-					FVector xVector = FVector::CrossProduct(normalizedY, normalizedZ).GetSafeNormal();
 
-					// Recalculate the Z vector to ensure it's orthogonal
-					FVector correctedZ = FVector::CrossProduct(xVector, normalizedY).GetSafeNormal();
+					FVector normalizedY = this->GetActorRightVector().GetSafeNormal();
+
+					FVector normalizedZ = hitResult.ImpactNormal.GetSafeNormal();
+
+					// Calculate the X vector 
+					FVector xVector = FVector::CrossProduct(normalizedY, normalizedZ).GetSafeNormal();
+					//Calculate the Normalized Y using 
+					normalizedY = FVector::CrossProduct(normalizedZ, xVector).GetSafeNormal();
 
 					// Create a rotation from the orthonormal basis
-					FMatrix rotationMatrix = FMatrix(xVector, normalizedY, correctedZ, FVector::ZeroVector);
+					FMatrix rotationMatrix = FMatrix(xVector, normalizedY, normalizedZ, FVector::ZeroVector);
 					FRotator rewRotation = rotationMatrix.Rotator();
 #pragma endregion
-					boxRotation = rewRotation;
+					m_boxRotation = rewRotation;
 					if (hitResult.GetActor()->FindComponentByClass<UProceduralMeshComponent>()) {
-						hitActorCutable = true;
+						m_hitActorCutable = true;
+						UE_LOG(LogTemp, Warning, TEXT("HIT ACTOR CUTTABLE"));
+
 					}
 					else {
-						hitActorCutable = false;
+						m_hitActorCutable = false;
+						UE_LOG(LogTemp, Warning, TEXT("HIT ACTOR NOT CUTTABLE"));
+
 
 					}
 				}
@@ -156,11 +152,22 @@ void AUni_CuttingMeshes_Character::SetUpCutting()
 
 void AUni_CuttingMeshes_Character::SetUpDebug()
 {
+	if (m_hitActorCutable) {
+		box->SetWorldLocationAndRotation(m_boxOrigin, m_boxRotation);
+		//Maketransform
+		FTransform newTransform =  FTransform(m_boxRotation, m_boxOrigin, FVector(1,1,1));
+		FTransform new2Transform = FTransform(m_boxRotation, m_lastImpactPoint, FVector(1, 1, 1));
+
+		new2Transform.InverseTransformPosition(newTransform.GetLocation());
+		FVector newLocation = FVector(FMath::Abs(new2Transform.GetRelativeTransform(newTransform).GetLocation().X), FMath::Abs(new2Transform.GetRelativeTransform(newTransform).GetLocation().Y), m_boxWidth);
+		box->SetBoxExtent(newLocation, true);
+		DrawDebugBox(GetWorld(),box->GetComponentLocation(),box->GetScaledBoxExtent(),box->GetComponentQuat(), FColor::Green, false, 0, 0, 10);
+	}	
 	//NEXT PART (CURRENTLY WORKING ON THIS)
 }
 
 void AUni_CuttingMeshes_Character::PickedUp(AActor* attachTo)
 {
 	this->AttachToActor(attachTo, FAttachmentTransformRules::KeepRelativeTransform);
-	pickedUp = true;
+	m_pickedUp = true;
 }
