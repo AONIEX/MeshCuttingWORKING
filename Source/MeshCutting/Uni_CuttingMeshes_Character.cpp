@@ -81,75 +81,78 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 		DrawDebugBox(GetWorld(), box->GetComponentLocation(), box->GetScaledBoxExtent(), box->GetComponentQuat(), FColor::Purple, false, 3.0f, 0, 4);
 		//DRAWING THE CUTOUT BOX IN DEBUG FOR TESTING - END
 		//
-		TArray<UPrimitiveComponent*> overLappingComponents;
-		box->GetOverlappingComponents(overLappingComponents);
+		TArray<AActor*> overLappingComponents;
+		box->GetOverlappingActors(overLappingComponents);
 		//START OF MESH SLICING
-		for (UPrimitiveComponent* comp : overLappingComponents)
+		for (AActor* comp : overLappingComponents)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("OVERLAPPING WITH ACOTR"));
 
-			UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(comp->GetAttachParentActor()->GetComponentByClass(UProceduralMeshComponent::StaticClass()));
+			UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(comp->GetComponentByClass(UProceduralMeshComponent::StaticClass()));
 			if (procMeshComp)
 			{
 				for (int i = 0; i < 4; i++)
 				{
-					FVector planePosition = box->GetComponentLocation();;
+					FVector planePosition = box->GetComponentLocation();
 					FVector planeNormal;
 					FVector directionVector;
 
 					switch (i)
 					{
 					case 0:
-						//Gets Left Cut For Slicing Mesh
+						UE_LOG(LogTemp, Warning, TEXT("SLICED LEFT"));
+
+						// Moving the slicing plane left, With a normal pointing right
 						directionVector = box->GetRightVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y,10); //T0 Stop crashing 
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y * 0.95f,10); //T0 Stop crashing 
 						planePosition -= directionVector;
 
-						//Gets the normal
 						planeNormal = box->GetRightVector();
-						//FVector rightNormal = box->GetRightVector();
+
 						break;
 					case 1:
-						//Gets Forward Cut For Slicing Mesh
+						UE_LOG(LogTemp, Warning, TEXT("SLICED FORWARD"));
+
+						// Moving the slicing plane forward, with a  normal pointing backward
 						directionVector = box->GetForwardVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().X, 10); //T0 Stop crashing 
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().X *0.95f, 10); //T0 Stop crashing 
 						planePosition += directionVector;
 
-						//Gets the normal
-						planeNormal = -box->GetRightVector();
-						//FVector forwardNormal = box->GetRightVector() * -1;
+						planeNormal = -box->GetForwardVector();
+
 						break;
 					case 2:
-						//Gets Up right For Slicing Mesh
+						UE_LOG(LogTemp, Warning, TEXT("SLICED LEFT"));
+
+						// Moving the slicing plane right, with a normal pointing left
 						directionVector = box->GetRightVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y, 10); //T0 Stop crashing 
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y * 0.95f, 10); //T0 Stop crashing 
 						planePosition += directionVector;
 
-						//Gets the normal
 						planeNormal = -box->GetRightVector();
-						//FVector rightNormal = box->GetRightVector() * -1;
 
 						break;
-
 					case 3:
-						//Gets BackFward Cut For Slicing Mesh
-						directionVector = box->GetForwardVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().X, 10); //T0 Stop crashing 
+						UE_LOG(LogTemp, Warning, TEXT("SLICED FORWARD"));
+
+						// Moving the slicing plane backward, with a normal pointing forward
+						directionVector =box->GetForwardVector();
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().X * 0.95f, 10); //T0 Stop crashing 
 						planePosition -= directionVector;
 
-						//Gets the Normal
-						planeNormal = box->GetRightVector();
-						//FVector forwardNormal = box->GetRightVector();
+						planeNormal = box->GetForwardVector();
 
 						break;
 
 					default:
-						break;
+						UE_LOG(LogTemp, Warning, TEXT("NOT SLICING ---ERROR---"));
+
 					}
 					UProceduralMeshComponent* otherHalfProcMesh = nullptr;
 					UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, box->GetMaterial(0));
 					otherCutProcMeshes.Add(otherHalfProcMesh);					//Slicing The Mesh
 				}
+				//NEED TO ADD VARIABLES TO THE MESH
+				procMeshComp->SetSimulatePhysics(true);
 			}
 		}
 	}
