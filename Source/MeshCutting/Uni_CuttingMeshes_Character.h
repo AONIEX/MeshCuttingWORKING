@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "Components/BoxComponent.h"
 #include "ProceduralMeshComponent.h"
+#include "KismetProceduralMeshLibrary.h"
 #include "Camera/CameraComponent.h"
 #include "Uni_CuttingMeshes_Character.generated.h"
 
@@ -44,6 +45,7 @@ protected:
 	TArray<FRotator> m_cutMeshesRoation;
 	TArray<AActor> m_lastHitActor;
 
+	TArray<UProceduralMeshComponent*> otherCutProcMeshes;
 	//open and closing gate
 	bool m_gateOpen = false;
 
