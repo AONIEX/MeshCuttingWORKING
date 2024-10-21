@@ -28,6 +28,7 @@ void AUni_CuttingMeshes_Character::BeginPlay()
 
 	Super::BeginPlay();
 	box->SetCollisionProfileName(TEXT("OverlapAll"));
+	m_isCutting = false;
 
 }
 
@@ -51,6 +52,8 @@ void AUni_CuttingMeshes_Character::SetupPlayerInputComponent(UInputComponent* Pl
 
 	PlayerInputComponent->BindAction("StartCutting", IE_Pressed, this, &AUni_CuttingMeshes_Character::Start_Cutting);
 	PlayerInputComponent->BindAction("StartCutting", IE_Released, this, &AUni_CuttingMeshes_Character::Stop_Cutting);
+	PlayerInputComponent->BindAction("ReturnToPosition", IE_Released, this, &AUni_CuttingMeshes_Character::ReturnToOriginalPosition);
+
 	//d}
 
 }
@@ -104,7 +107,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 						// Moving the slicing plane left, With a normal pointing right
 						directionVector = box->GetRightVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y * 0.95f,10); //T0 Stop crashing 
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y ,10); //T0 Stop crashing 
 						planePosition -= directionVector;
 
 						planeNormal = box->GetRightVector();
@@ -115,7 +118,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 						// Moving the slicing plane forward, with a  normal pointing backward
 						directionVector = box->GetForwardVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().X *0.95f, 10); //T0 Stop crashing 
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().X , 10); //T0 Stop crashing 
 						planePosition += directionVector;
 
 						planeNormal = -box->GetForwardVector();
@@ -126,7 +129,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 						// Moving the slicing plane right, with a normal pointing left
 						directionVector = box->GetRightVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y * 0.95f, 10); //T0 Stop crashing 
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().Y , 10); //T0 Stop crashing 
 						planePosition += directionVector;
 
 						planeNormal = -box->GetRightVector();
@@ -137,7 +140,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 						// Moving the slicing plane backward, with a normal pointing forward
 						directionVector =box->GetForwardVector();
-						directionVector *= FMath::Max(box->GetScaledBoxExtent().X * 0.95f, 10); //T0 Stop crashing 
+						directionVector *= FMath::Max(box->GetScaledBoxExtent().X , 10); //T0 Stop crashing 
 						planePosition -= directionVector;
 
 						planeNormal = box->GetForwardVector();
@@ -149,16 +152,24 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 					}
 					UProceduralMeshComponent* otherHalfProcMesh = nullptr;
-					otherCutProcMeshes.Add(otherHalfProcMesh);					//Slicing The Mesh
+
+					//otherCutProcMeshes.Add(otherHalfProcMesh);					//Slicing The Mesh
 					UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, box->GetMaterial(0));
+					m_cutMeshes.Add(otherHalfProcMesh);
+
 				}
 				//NEED TO ADD VARIABLES TO THE MESH
 				procMeshComp->SetSimulatePhysics(true);
 				procMeshComp->SetWorldLocation(procMeshComp->GetComponentLocation() + (box->GetUpVector() * 50)); //MAKING THIS INTO A LERP LATER ON TO MAKE A SMOOTH TRANSITION - TODO
+				m_cutMeshes.Add(procMeshComp);
+				box->SetBoxExtent(box->GetScaledBoxExtent() * 0.95f, true);
+				procMeshComp->ComponentTags.Add(FName(tag));
 			}
 		}
 	}
 	m_isCutting = false;
+	box->SetBoxExtent(FVector(0,0,0), true);
+	box->SetCollisionProfileName(TEXT("NoCollision"), true);
 
 	//}
 }
@@ -243,8 +254,22 @@ void AUni_CuttingMeshes_Character::SetUpDebug()
 	//NEXT PART (CURRENTLY WORKING ON THIS)
 }
 
-void AUni_CuttingMeshes_Character::PickedUp(AActor* attachTo)
+void AUni_CuttingMeshes_Character::ReturnToOriginalPosition()
 {
-	this->AttachToActor(attachTo, FAttachmentTransformRules::KeepRelativeTransform);
-	m_pickedUp = true;
+	for (int i = 0; i < m_cutMeshes.Num(); i++)
+	{
+		FVector originalLocation = m_cutMeshes[i]->GetAttachmentRootActor()->GetActorLocation();
+		FRotator originalRotation = m_cutMeshes[i]->GetAttachmentRootActor()->GetActorRotation();
+		m_cutMeshes[i]->SetSimulatePhysics(false);
+		m_cutMeshes[i]->SetWorldRotation(originalRotation);
+		m_cutMeshes[i]->SetWorldLocation(originalLocation);
+	}
+
+	//NEXT PART TO DO
 }
+
+//void AUni_CuttingMeshes_Character::PickedUp(AActor* attachTo)
+//{
+//	this->AttachToActor(attachTo, FAttachmentTransformRules::KeepRelativeTransform);
+//	m_pickedUp = true;
+//}

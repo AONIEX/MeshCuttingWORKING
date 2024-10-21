@@ -34,18 +34,18 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	bool m_isCutting = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	bool m_hitActorCutable;
+	bool m_hitActorCutable = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	bool m_holding;
+	bool m_holding = false;
 	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
 	bool m_pickedUp = false;
 	//Lists
-	TArray<UProceduralMeshComponent> m_cutMeshes;
-	TArray<FVector>	m_cutMeshesOrigin;
-	TArray<FRotator> m_cutMeshesRoation;
+	TArray<UProceduralMeshComponent*> m_cutMeshes;
+	//TArray<FVector>	m_cutMeshesOrigin;
+	//TArray<FRotator> m_cutMeshesRoation;
 	TArray<AActor> m_lastHitActor;
 
-	TArray<UProceduralMeshComponent*> otherCutProcMeshes;
+	//TArray<UProceduralMeshComponent*> otherCutProcMeshes;
 	//open and closing gate
 	bool m_gateOpen = false;
 
@@ -59,13 +59,15 @@ public:
 	void Stop_Cutting();
 	void SetUpCutting();
 	void SetUpDebug();
-	UFUNCTION(BlueprintCallable, category = "MyBlueprintLibary")
-	void PickedUp(AActor* attackToComponent);
+	void ReturnToOriginalPosition();
+	//UFUNCTION(BlueprintCallable, category = "MyBlueprintLibary")
+	//void PickedUp(AActor* attackToComponent);
 
 	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
 	UBoxComponent* box;
 	UPROPERTY(EditAnywhere, Category = "Components")
 	UActorComponent* hitComponent;
-
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	FString tag = "Grabbable";
 
 };
