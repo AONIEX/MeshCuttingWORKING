@@ -81,13 +81,14 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 		DrawDebugBox(GetWorld(), box->GetComponentLocation(), box->GetScaledBoxExtent(), box->GetComponentQuat(), FColor::Purple, false, 3.0f, 0, 4);
 		//DRAWING THE CUTOUT BOX IN DEBUG FOR TESTING - END
 		//
-		TArray<AActor*> overLappingComponents;
-		box->GetOverlappingActors(overLappingComponents);
+		TArray<UPrimitiveComponent*> overLappingComponents;
+		box->GetOverlappingComponents(overLappingComponents);
 		//START OF MESH SLICING
-		for (AActor* comp : overLappingComponents)
+		for (UPrimitiveComponent* comp : overLappingComponents)
 		{
+			UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(comp);
+			//UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(comp->GetAttachmentRootActor()->GetComponentByClass(UProceduralMeshComponent::StaticClass()));
 
-			UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(comp->GetComponentByClass(UProceduralMeshComponent::StaticClass()));
 			if (procMeshComp)
 			{
 				for (int i = 0; i < 4; i++)
@@ -148,11 +149,12 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 					}
 					UProceduralMeshComponent* otherHalfProcMesh = nullptr;
-					UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, box->GetMaterial(0));
 					otherCutProcMeshes.Add(otherHalfProcMesh);					//Slicing The Mesh
+					UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, box->GetMaterial(0));
 				}
 				//NEED TO ADD VARIABLES TO THE MESH
 				procMeshComp->SetSimulatePhysics(true);
+				procMeshComp->SetWorldLocation(procMeshComp->GetComponentLocation() + (box->GetUpVector() * 50)); //MAKING THIS INTO A LERP LATER ON TO MAKE A SMOOTH TRANSITION - TODO
 			}
 		}
 	}
