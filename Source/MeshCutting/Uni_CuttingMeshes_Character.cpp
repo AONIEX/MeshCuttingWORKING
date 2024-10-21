@@ -42,6 +42,18 @@ void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 		SetUpDebug();
 		//Visualisng DebugBox And Cut Area
 	}
+
+
+	for (auto& Pair : _returningMeshes)
+	{
+		if (Pair.Value.bShouldReturn)
+		{
+			GoToPosition(Pair, Pair.Value.bShouldReturn,DeltaTime, goToSpeed);
+
+		}
+	}
+	
+
 }
 
 // Called to bind functionality to input
@@ -52,7 +64,7 @@ void AUni_CuttingMeshes_Character::SetupPlayerInputComponent(UInputComponent* Pl
 
 	PlayerInputComponent->BindAction("StartCutting", IE_Pressed, this, &AUni_CuttingMeshes_Character::Start_Cutting);
 	PlayerInputComponent->BindAction("StartCutting", IE_Released, this, &AUni_CuttingMeshes_Character::Stop_Cutting);
-	PlayerInputComponent->BindAction("ReturnToPosition", IE_Released, this, &AUni_CuttingMeshes_Character::ReturnToOriginalPosition);
+	PlayerInputComponent->BindAction("ReturnToPosition", IE_Released, this, &AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition);
 
 	//d}
 
@@ -152,18 +164,72 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 					}
 					UProceduralMeshComponent* otherHalfProcMesh = nullptr;
-
+					
 					//otherCutProcMeshes.Add(otherHalfProcMesh);					//Slicing The Mesh
 					UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, box->GetMaterial(0));
 					m_cutMeshes.Add(otherHalfProcMesh);
+					if (procMeshComp->ComponentTags.Contains(tag) || procMeshComp->ComponentTags.Contains(cutTag)) {
+						otherHalfProcMesh->ComponentTags.Add(FName(cutTag));
+					}
 
 				}
 				//NEED TO ADD VARIABLES TO THE MESH
 				procMeshComp->SetSimulatePhysics(true);
-				procMeshComp->SetWorldLocation(procMeshComp->GetComponentLocation() + (box->GetUpVector() * 50)); //MAKING THIS INTO A LERP LATER ON TO MAKE A SMOOTH TRANSITION - TODO
-				m_cutMeshes.Add(procMeshComp);
+				//procMeshComp->SetWorldLocation(); //MAKING THIS INTO A LERP LATER ON TO MAKE A SMOOTH TRANSITION - TODO
+				//m_cutMeshes.Add(procMeshComp);
+				//FBoxSphereBounds boundingBox = procMeshComp->GetAttachmentRootActor()->GetComponentsBoundingBox();
+
+				//// Step 2: Calculate the size
+				//FVector size = boundingBox.GetBox().GetSize(); // size.x, size.y, size.z
+
+				//// Step 3: Get the up vector of the reference actor
+				//FVector upVector = box->GetUpVector();
+
+				//// Step 4: Project the size onto the up vector
+				//// Assuming we want to get the size projected in the direction of the up vector
+				//float projectedSize = FVector::DotProduct(size, upVector);
+
+				FBox boundingBox(ForceInit); // Initialize an empty bounding box
+				if (!procMeshComp->ComponentTags.Contains(cutTag)) {
+					TArray<UProceduralMeshComponent*> allComponents;
+
+					// Get all components of the actor
+						procMeshComp->GetAttachmentRootActor()->GetComponents(allComponents);
+
+						// Create a set of components to exclude for faster lookup
+
+						// Iterate through all components
+						for (UProceduralMeshComponent* component : allComponents)
+						{
+
+							// Check if this component should be excluded
+							// Expand the bounding box to include this component
+							if (!component->ComponentTags.Contains(tag) && !component->ComponentTags.Contains("Cut")) {
+								FBox componentBox = component->GetStreamingBounds();
+								boundingBox += componentBox;
+							}
+						}
+				}
+				else {
+					boundingBox = procMeshComp->GetStreamingBounds();
+				}
+				FVector upVector = box->GetUpVector();
+
+				// Step 4: Project the size onto the up vector
+				// Assuming we want to get the size projected in the direction of the up vector
+				float projectedSize = FVector::DotProduct(boundingBox.GetSize(), upVector);
 				box->SetBoxExtent(box->GetScaledBoxExtent() * 0.95f, true);
 				procMeshComp->ComponentTags.Add(FName(tag));
+				procMeshComp->ComponentTags.Add(FName(cutTag));
+
+
+				//Setting Up Mesh Returing and putting the mesh into a new location
+				_MeshReturnInfo meshReturnInfo;
+				meshReturnInfo.bShouldReturn = true;
+				meshReturnInfo.newLocation = procMeshComp->GetComponentLocation() + (box->GetUpVector() * ((upVector *projectedSize * 1.1f )));
+				meshReturnInfo.newQuat = procMeshComp->GetComponentQuat();
+				meshReturnInfo.turnOnPhysics = true;
+				_returningMeshes.Add(procMeshComp, meshReturnInfo);
 			}
 		}
 	}
@@ -254,18 +320,47 @@ void AUni_CuttingMeshes_Character::SetUpDebug()
 	//NEXT PART (CURRENTLY WORKING ON THIS)
 }
 
-void AUni_CuttingMeshes_Character::ReturnToOriginalPosition()
+void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition()
 {
-	for (int i = 0; i < m_cutMeshes.Num(); i++)
+	//returnToPos = true;
+	/*for (int i = 0; i < m_cutMeshes.Num(); i++)
 	{
 		FVector originalLocation = m_cutMeshes[i]->GetAttachmentRootActor()->GetActorLocation();
 		FRotator originalRotation = m_cutMeshes[i]->GetAttachmentRootActor()->GetActorRotation();
 		m_cutMeshes[i]->SetSimulatePhysics(false);
 		m_cutMeshes[i]->SetWorldRotation(originalRotation);
 		m_cutMeshes[i]->SetWorldLocation(originalLocation);
-	}
+	}*/
 
 	//NEXT PART TO DO
+}
+
+void AUni_CuttingMeshes_Character::GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returnPair, bool &shouldReturn, float dt, float speed)
+{
+	UProceduralMeshComponent* procMesh = returnPair.Key;
+	FVector goToLocation = returnPair.Value.newLocation;
+	FQuat goToRotation = returnPair.Value.newQuat;
+	procMesh->SetSimulatePhysics(false);
+
+	FVector currentLocation = procMesh->GetComponentLocation();
+	FQuat currentRotation = procMesh->GetComponentQuat();
+
+	FVector newLocation = FMath::Lerp(currentLocation, goToLocation, dt * speed);
+	FQuat newRotation = FQuat::Slerp(currentRotation, FQuat(goToRotation), dt * speed);
+
+	procMesh->SetWorldRotation(newRotation);
+	procMesh->SetWorldLocation(newLocation);
+
+	if (FVector::Dist(newLocation, goToLocation) < 0.5f) // Adjust the threshold as needed
+	{
+		// Optionally stop further movement
+		procMesh->SetWorldLocation(goToLocation);
+		procMesh->SetWorldRotation(goToRotation);
+		if (returnPair.Value.turnOnPhysics == true) {
+			procMesh->SetSimulatePhysics(true);
+		}
+		shouldReturn = false;
+	}
 }
 
 //void AUni_CuttingMeshes_Character::PickedUp(AActor* attachTo)
