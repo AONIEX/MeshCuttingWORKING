@@ -8,6 +8,7 @@
 #include "ProceduralMeshComponent.h"
 #include "KismetProceduralMeshLibrary.h"
 #include "Camera/CameraComponent.h"
+#include "Uni_ProcMesh.h"
 #include "Uni_CuttingMeshes_Character.generated.h"
 
 UCLASS()
@@ -43,12 +44,16 @@ protected:
 
 
 	//Variables
+	bool returnAll = false;
 	float m_boxWidth = 5;
-
 	FVector m_lastImpactPoint;
 	FVector m_boxOrigin;
-
 	FRotator m_boxRotation;
+
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	UObject* procMeshRespawnActor;
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	bool canCut = true;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	bool m_isCutting = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
@@ -57,12 +62,12 @@ protected:
 	bool m_holding = false;
 	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
 	bool m_pickedUp = false;
-
 	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
 	float cutOutDistance = 50;
+
 	//Lists
 	TArray<UProceduralMeshComponent*> m_cutMeshes;
-	TMap<UProceduralMeshComponent*, _MeshReturnInfo> _returningMeshes;
+	TMap<UProceduralMeshComponent*, _MeshReturnInfo> m_returningMeshes;
 
 
 	//TArray<FVector>	m_cutMeshesOrigin;
@@ -73,10 +78,9 @@ protected:
 	//open and closing gate
 	bool m_gateOpen = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Returining")
-	float goToSpeed = 3;
-
+	float m_goToSpeed = 3;
 	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
-	UBoxComponent* box;
+	UBoxComponent* m_box;
 	UPROPERTY(EditAnywhere, Category = "Components")
 	UActorComponent* hitComponent;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
@@ -93,7 +97,8 @@ public:
 	void Stop_Cutting();
 	void SetUpCutting();
 	void SetUpDebug();
-	void ReturnAllToOriginalPosition();
+	void StartReturningAll();
+	void ReturnAllToOriginalPosition(float dt);
 	void GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returningCompMap,bool &shouldReturn,float dt, float speed);
 
 
