@@ -75,10 +75,55 @@ void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 	if (m_holding) {
 		if (m_grabbedComponent) {
 
-			FVector displacement = m_grabbedComponent->GetLocalBounds().Origin;
-			FVector finalPos = m_grabPoint->GetComponentLocation() -displacement;// -m_grabbedComponent->GetComponentLocation();
-			//m_grabbedComponent->SetWorldLocation(finalPos);
-			m_grabbedComponent->SetWorldRotation(this->GetActorRotation());
+			FVector center = FVector::ZeroVector;
+			int32 vertexCount = 0;
+
+			// Loop through all sections (assuming you want the first section here)
+			UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(m_grabbedComponent);
+			// Loop through all the sections manually if you know the section count
+			for (int32 sectionIndex = 0; sectionIndex < procMeshComp->GetNumSections(); sectionIndex++)
+			{
+				const FProcMeshSection* section = procMeshComp->GetProcMeshSection(sectionIndex);
+				if (section)
+				{
+					// Get the vertices from the section
+					const TArray<FProcMeshVertex>& vertices = section->ProcVertexBuffer;
+
+
+					// Get the vertices from the section
+
+					// Sum up the vertex positions
+					for (const FProcMeshVertex& vertex : vertices)
+					{
+						center += vertex.Position;
+					}
+					vertexCount += vertices.Num();
+				}
+			}
+
+			// Calculate the average to find the center
+			if (vertexCount > 0)
+			{
+				center /= vertexCount;
+			}
+
+			// Get the local bounds of the grabbed component to determine its center
+			FBoxSphereBounds bounds = m_grabbedComponent->GetLocalBounds();
+			FVector sliceCenter = bounds.Origin; // Center of the sliced mesh
+
+			// Get the grab point location
+			FVector grabPointLocation = m_grabPoint->GetComponentLocation();
+
+			// Calculate the offset from the slice center to the grab point
+			FVector offset = sliceCenter;// center; // This should just be the slice center for X and Y
+
+			// Calculate the final position based on the grab point's location, keeping the Z from the grab point
+			FVector finalPos = FVector(grabPointLocation.X - (offset.X), grabPointLocation.Y - (offset.Y), grabPointLocation.Z - (center.Z *  5));
+
+			// Set the world rotation of the grabbed component
+			m_grabbedComponent->SetWorldRotation(FRotator(0,this->GetActorRotation().Yaw,0));
+
+			// Update the physics handle's target location
 			m_physicsHandle->SetTargetLocation(finalPos); // Set the target location to the grab point
 		}
 	}
