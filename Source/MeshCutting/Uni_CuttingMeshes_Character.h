@@ -6,9 +6,11 @@
 #include "GameFramework/Character.h"
 #include "Components/BoxComponent.h"
 #include "ProceduralMeshComponent.h"
-#include "KismetProceduralMeshLibrary.h"
+#include "Components/ArrowComponent.h"
 #include "Camera/CameraComponent.h"
-#include "Uni_ProcMesh.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "KismetProceduralMeshLibrary.h"
 #include "Uni_CuttingMeshes_Character.generated.h"
 
 UCLASS()
@@ -44,7 +46,7 @@ protected:
 
 
 	//Variables
-	bool returnAll = false;
+	bool m_returnAll = false;
 	float m_boxWidth = 5;
 	FVector m_lastImpactPoint;
 	FVector m_boxOrigin;
@@ -82,11 +84,26 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
 	UBoxComponent* m_box;
 	UPROPERTY(EditAnywhere, Category = "Components")
-	UActorComponent* hitComponent;
+	UActorComponent* m_hitComponent;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	FString tag = "Grabbable";
+	FString grabTag = "Grabbable";
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	FString cutTag = "Cut";
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	UPrimitiveComponent* m_grabbedComponent;
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	UPhysicsHandleComponent* m_physicsHandle;
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	USceneComponent* m_grabPoint;
+
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	USpringArmComponent* m_springArm;
+
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	UCameraComponent* m_cameraComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	float grabRange = 5000;
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -100,7 +117,8 @@ public:
 	void StartReturningAll();
 	void ReturnAllToOriginalPosition(float dt);
 	void GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returningCompMap,bool &shouldReturn,float dt, float speed);
-
+	void Grab();
+	void StopGrabbing();
 
 
 	//UFUNCTION(BlueprintCallable, category = "MyBlueprintLibary")

@@ -17,15 +17,44 @@ AUni_CuttingMeshes_Character::AUni_CuttingMeshes_Character()
 	// Set the size of the box
 	m_box->SetBoxExtent(FVector(32.0f, 32.0f, 32.0f));
 	m_box->SetGenerateOverlapEvents(true);
+	m_box->RegisterComponent();
+
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	m_springArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	m_springArm->SetupAttachment(RootComponent);
+	m_springArm->TargetArmLength = 0;
+	m_springArm->bUsePawnControlRotation = true; 
+
+	// Create the Camera Component
+	m_cameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
+	m_cameraComponent->SetupAttachment(m_springArm);
+	m_cameraComponent->bUsePawnControlRotation = true;
+	m_cameraComponent->SetRelativeLocation(FVector(0, 0, 55),false)
+		;
+	m_physicsHandle = CreateDefaultSubobject<UPhysicsHandleComponent>(TEXT("PhysicsHandle"));
+	m_physicsHandle->LinearDamping = 200.0f;
+	m_physicsHandle->LinearStiffness = 750.0f;
+	m_physicsHandle->AngularDamping = 500.0f;
+	m_physicsHandle->AngularStiffness = 1500.0;
+	m_physicsHandle->InterpolationSpeed = 50.0f;
+	m_physicsHandle->bSoftAngularConstraint = true;
+	m_physicsHandle->bSoftLinearConstraint = true;
+	m_physicsHandle->bInterpolateTarget = true;
+	m_physicsHandle->bAutoActivate = true;
+	m_physicsHandle->RegisterComponent();
+
+	m_grabPoint = CreateDefaultSubobject<USceneComponent>(TEXT("GrabPoint"));
+	m_grabPoint->SetupAttachment(RootComponent); // Ensure it's attached to the root
+	m_grabPoint->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f)); // Adjust the location if needed
+	m_grabPoint->SetupAttachment(m_springArm);
 
 }
 
 // Called when the game starts or when spawned
 void AUni_CuttingMeshes_Character::BeginPlay()
 {
-
 	Super::BeginPlay();
 	m_box->SetCollisionProfileName(TEXT("OverlapAll"));
 	m_isCutting = false;
@@ -43,23 +72,33 @@ void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 		//Visualisng DebugBox And Cut Area
 	}
 
+	if (m_holding) {
+		if (m_grabbedComponent) {
 
-	if (!returnAll) {
-		for (auto& Pair : m_returningMeshes)
-		{
-			if (Pair.Value.bShouldReturn)
-			{
-				GoToPosition(Pair, Pair.Value.bShouldReturn, DeltaTime, m_goToSpeed);
-
-			}
+			FVector displacement = m_grabbedComponent->GetLocalBounds().Origin;
+			FVector finalPos = m_grabPoint->GetComponentLocation() - displacement;// -m_grabbedComponent->GetComponentLocation();
+			//m_grabbedComponent->SetWorldLocation(finalPos);
+			m_grabbedComponent->SetWorldRotation(this->GetActorRotation());
+			m_physicsHandle->SetTargetLocation(finalPos); // Set the target location to the grab point
 		}
 	}
+	else {
+		if (!m_returnAll) {
+			for (auto& Pair : m_returningMeshes)
+			{
+				if (Pair.Value.bShouldReturn)
+				{
+					GoToPosition(Pair, Pair.Value.bShouldReturn, DeltaTime, m_goToSpeed);
 
-	if (returnAll) {
-		ReturnAllToOriginalPosition(DeltaTime);
+				}
+			}
+		}
+
+		if (m_returnAll) {
+			ReturnAllToOriginalPosition(DeltaTime);
+		}
 	}
 	
-
 }
 
 // Called to bind functionality to input
@@ -70,7 +109,10 @@ void AUni_CuttingMeshes_Character::SetupPlayerInputComponent(UInputComponent* Pl
 
 	PlayerInputComponent->BindAction("StartCutting", IE_Pressed, this, &AUni_CuttingMeshes_Character::Start_Cutting);
 	PlayerInputComponent->BindAction("StartCutting", IE_Released, this, &AUni_CuttingMeshes_Character::Stop_Cutting);
-	PlayerInputComponent->BindAction("ReturnToPosition", IE_Released, this, &AUni_CuttingMeshes_Character::StartReturningAll);
+	PlayerInputComponent->BindAction("ReturnToPosition", IE_Pressed, this, &AUni_CuttingMeshes_Character::StartReturningAll);
+	PlayerInputComponent->BindAction("Grab", IE_Pressed, this, &AUni_CuttingMeshes_Character::Grab);
+	PlayerInputComponent->BindAction("Grab", IE_Released, this, &AUni_CuttingMeshes_Character::StopGrabbing);
+
 
 	//d}
 
@@ -182,7 +224,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 						if (!m_cutMeshes.Contains(otherHalfProcMesh)) {
 							m_cutMeshes.Add(otherHalfProcMesh);
 						}
-						if (procMeshComp->ComponentTags.Contains(tag) || procMeshComp->ComponentTags.Contains(cutTag)) {
+						if (procMeshComp->ComponentTags.Contains(grabTag) || procMeshComp->ComponentTags.Contains(cutTag)) {
 							otherHalfProcMesh->ComponentTags.Add(FName(cutTag));
 						}
 
@@ -204,7 +246,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 							// Check if this component should be excluded
 							// Expand the bounding box to include this component
-							if (!component->ComponentTags.Contains(tag) && !component->ComponentTags.Contains("Cut")) {
+							if (!component->ComponentTags.Contains(grabTag) && !component->ComponentTags.Contains("Cut")) {
 								FBox componentBox = component->GetStreamingBounds();
 								boundingBox += componentBox;
 							}
@@ -218,7 +260,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 					// Assuming we want to get the size projected in the direction of the up vector
 					float projectedSize = FVector::DotProduct(boundingBox.GetSize(), upVector);
 					m_box->SetBoxExtent(m_box->GetScaledBoxExtent() * 0.95f, true);
-					procMeshComp->ComponentTags.Add(FName(tag));
+					procMeshComp->ComponentTags.Add(FName(grabTag));
 					procMeshComp->ComponentTags.Add(FName(cutTag));
 			
 					//Setting Up Mesh Returing and putting the mesh into a new location
@@ -245,13 +287,12 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 void AUni_CuttingMeshes_Character::SetUpCutting()
 {
 	//Setting up Variables
-	UCameraComponent* cameraComponent = this->FindComponentByClass<UCameraComponent>();
 
 	//ForTesting
 	FVector start = GetActorLocation();
 	//For Final Use 
 	//FVector Start = cameraComponent->GetComponentLocation();
-	FVector end = start + cameraComponent->GetForwardVector() * 5000;
+	FVector end = start + m_cameraComponent->GetForwardVector() * 5000;
 	FHitResult hitResult;
 	FCollisionQueryParams collisionParams;
 	collisionParams.AddIgnoredActor(this);
@@ -333,7 +374,7 @@ void AUni_CuttingMeshes_Character::StartReturningAll()
 			if (Pair.Value.bShouldReturn)
 				Pair.Value.bShouldReturn = false;
 		}
-		returnAll = true;
+		m_returnAll = true;
 		canCut = false;
 	}
 }
@@ -402,7 +443,7 @@ void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 	}
 	if (returnsCompleted == m_cutMeshes.Num()) {
 		canCut = true;
-		returnAll = false;
+		m_returnAll = false;
 		TArray<AActor*> allOwners;
 		for (auto& cutMesh : m_cutMeshes) {
 			AActor* meshsActor = cutMesh->GetAttachmentRootActor();
@@ -424,10 +465,6 @@ void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			UClass* SpawnClass = procMeshRespawnActor->GetClass();
 			AActor* newProcMeshActor = GetWorld()->SpawnActor<AActor>(actorClass, actor->GetTransform().GetLocation(), actor->GetTransform().Rotator(), SpawnParams);
-			//AActor* newProcMeshActor = World->SpawnActor<AActor>(AActor::StaticClass(), actor->GetTransform().GetLocation(), actor->GetTransform().Rotator(), SpawnParams);
-			// Spawning the new procedural mesh actor
-			/*TSubclassOf<AActor> actorToSpawn = LoadObject<UClass>(nullptr, TEXT("Blueprint'/MeshCutting/Content/ProcMesh.uasset'"));
-			AActor* newProcMeshActor = GetWorld()->SpawnActor<AActor>(actorToSpawn, actor->GetTransform().GetLocation(), actor->GetTransform().Rotator());*/
 			if (newProcMeshActor)
 			{
 				UProceduralMeshComponent* procMeshComponent = Cast<UProceduralMeshComponent>(newProcMeshActor->GetComponentByClass(UProceduralMeshComponent::StaticClass()));
@@ -472,5 +509,56 @@ void AUni_CuttingMeshes_Character::GoToPosition(TPair<UProceduralMeshComponent*,
 		shouldReturn = false;
 	}
 }
+
+#pragma endregion
+#pragma region Grabbing
+void AUni_CuttingMeshes_Character::Grab()
+{
+	if (!m_holding && !m_returnAll) {
+		UCameraComponent* cameraComponent = this->FindComponentByClass<UCameraComponent>();
+
+		//ForTesting
+		FVector start = m_cameraComponent->GetComponentLocation();
+		FVector end = start + m_cameraComponent->GetForwardVector() * grabRange;
+		FHitResult hitResult;
+		FCollisionQueryParams collisionParams;
+		collisionParams.AddIgnoredActor(this);
+		if (GetWorld()->LineTraceSingleByChannel(hitResult, start, end, ECC_Visibility, collisionParams))
+		{
+			DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Blue, false, 0.1f, 0, 1.0f);
+			// Check if something was hit
+			
+			if (hitResult.GetComponent())
+			{
+				UPrimitiveComponent* hitComp = hitResult.GetComponent();
+				UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(hitComp);
+				if (procMeshComp && procMeshComp->IsSimulatingPhysics())//making sure there is a procedural mesh component
+				{
+					if (procMeshComp->ComponentTags.Contains(grabTag)) {
+						m_grabbedComponent = procMeshComp;
+						m_holding = true;
+						//m_grabbedComponent->SetSimulatePhysics(false);
+						m_grabbedComponent->WakeRigidBody();
+						m_physicsHandle->GrabComponentAtLocation(procMeshComp, NAME_None, procMeshComp->GetComponentLocation());
+					}
+				}
+			}
+		}
+	}
+}
+
+void AUni_CuttingMeshes_Character::StopGrabbing() {
+	if (m_grabbedComponent) {
+	
+		m_physicsHandle->ReleaseComponent();
+		m_grabbedComponent->SetPhysicsLinearVelocity(FVector::ZeroVector);
+		m_grabbedComponent->SetPhysicsAngularVelocityInDegrees(FVector(0,0,0), false, NAME_None);
+		m_grabbedComponent = nullptr;
+	}
+	m_holding = false;
+
+
+}
+
 #pragma endregion
 
