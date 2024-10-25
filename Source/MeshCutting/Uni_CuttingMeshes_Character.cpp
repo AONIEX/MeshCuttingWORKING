@@ -76,7 +76,7 @@ void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 		if (m_grabbedComponent) {
 
 			FVector displacement = m_grabbedComponent->GetLocalBounds().Origin;
-			FVector finalPos = m_grabPoint->GetComponentLocation() - displacement;// -m_grabbedComponent->GetComponentLocation();
+			FVector finalPos = m_grabPoint->GetComponentLocation() -displacement;// -m_grabbedComponent->GetComponentLocation();
 			//m_grabbedComponent->SetWorldLocation(finalPos);
 			m_grabbedComponent->SetWorldRotation(this->GetActorRotation());
 			m_physicsHandle->SetTargetLocation(finalPos); // Set the target location to the grab point
@@ -456,15 +456,15 @@ void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 			FTransform actorTransform = actor->GetTransform();
 			FVector procMeshScale = Cast<UProceduralMeshComponent>(actor->GetComponentByClass(UProceduralMeshComponent::StaticClass()))->GetComponentScale();
 
-
-			//Getting the Actor Class from the BluePrint
-			UBlueprint* blueprint = Cast<UBlueprint>(procMeshRespawnActor);
-			UClass* actorClass = blueprint->GeneratedClass;
-
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			UClass* SpawnClass = procMeshRespawnActor->GetClass();
-			AActor* newProcMeshActor = GetWorld()->SpawnActor<AActor>(actorClass, actor->GetTransform().GetLocation(), actor->GetTransform().Rotator(), SpawnParams);
+			AActor* newProcMeshActor;
+			if (m_procMeshRespawn) {
+				newProcMeshActor = GetWorld()->SpawnActor<AActor>(m_procMeshRespawn, actor->GetTransform().GetLocation(), actor->GetTransform().Rotator(), SpawnParams);
+			}
+			else {
+				newProcMeshActor = nullptr;
+			}
 			if (newProcMeshActor)
 			{
 				UProceduralMeshComponent* procMeshComponent = Cast<UProceduralMeshComponent>(newProcMeshActor->GetComponentByClass(UProceduralMeshComponent::StaticClass()));
@@ -492,6 +492,7 @@ void AUni_CuttingMeshes_Character::GoToPosition(TPair<UProceduralMeshComponent*,
 	FVector currentLocation = procMesh->GetComponentLocation();
 	FQuat currentRotation = procMesh->GetComponentQuat();
 
+	//lerps the roation, and position between current one  and the go to one
 	FVector newLocation = FMath::Lerp(currentLocation, goToLocation, dt * speed);
 	FQuat newRotation = FQuat::Slerp(currentRotation, FQuat(goToRotation), dt * speed);
 
@@ -517,7 +518,7 @@ void AUni_CuttingMeshes_Character::Grab()
 	if (!m_holding && !m_returnAll) {
 		UCameraComponent* cameraComponent = this->FindComponentByClass<UCameraComponent>();
 
-		//ForTesting
+		//Getting the start and end location of the raycast
 		FVector start = m_cameraComponent->GetComponentLocation();
 		FVector end = start + m_cameraComponent->GetForwardVector() * grabRange;
 		FHitResult hitResult;
@@ -525,19 +526,20 @@ void AUni_CuttingMeshes_Character::Grab()
 		collisionParams.AddIgnoredActor(this);
 		if (GetWorld()->LineTraceSingleByChannel(hitResult, start, end, ECC_Visibility, collisionParams))
 		{
+			//For Testing
 			DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Blue, false, 0.1f, 0, 1.0f);
-			// Check if something was hit
 			
 			if (hitResult.GetComponent())
 			{
 				UPrimitiveComponent* hitComp = hitResult.GetComponent();
 				UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(hitComp);
-				if (procMeshComp && procMeshComp->IsSimulatingPhysics())//making sure there is a procedural mesh component
+				//checks if the procMesh exists and is simulating physics
+				if (procMeshComp && procMeshComp->IsSimulatingPhysics())
 				{
 					if (procMeshComp->ComponentTags.Contains(grabTag)) {
+						//adding the object to the ocrrect variables as well as the physics handle
 						m_grabbedComponent = procMeshComp;
 						m_holding = true;
-						//m_grabbedComponent->SetSimulatePhysics(false);
 						m_grabbedComponent->WakeRigidBody();
 						m_physicsHandle->GrabComponentAtLocation(procMeshComp, NAME_None, procMeshComp->GetComponentLocation());
 					}
@@ -549,7 +551,7 @@ void AUni_CuttingMeshes_Character::Grab()
 
 void AUni_CuttingMeshes_Character::StopGrabbing() {
 	if (m_grabbedComponent) {
-	
+		//Removes the component from the physics ahandle and stops its velocity
 		m_physicsHandle->ReleaseComponent();
 		m_grabbedComponent->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		m_grabbedComponent->SetPhysicsAngularVelocityInDegrees(FVector(0,0,0), false, NAME_None);

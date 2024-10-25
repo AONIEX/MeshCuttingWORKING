@@ -53,7 +53,7 @@ protected:
 	FRotator m_boxRotation;
 
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	UObject* procMeshRespawnActor;
+	TSubclassOf<AActor> m_procMeshRespawn;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	bool canCut = true;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
