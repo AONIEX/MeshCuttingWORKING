@@ -75,56 +75,7 @@ void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 	if (m_holding) {
 		if (m_grabbedComponent) {
 
-			FVector center = FVector::ZeroVector;
-			int32 vertexCount = 0;
-
-			// Loop through all sections (assuming you want the first section here)
-			UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(m_grabbedComponent);
-			// Loop through all the sections manually if you know the section count
-			for (int32 sectionIndex = 0; sectionIndex < procMeshComp->GetNumSections(); sectionIndex++)
-			{
-				const FProcMeshSection* section = procMeshComp->GetProcMeshSection(sectionIndex);
-				if (section)
-				{
-					// Get the vertices from the section
-					const TArray<FProcMeshVertex>& vertices = section->ProcVertexBuffer;
-
-
-					// Get the vertices from the section
-
-					// Sum up the vertex positions
-					for (const FProcMeshVertex& vertex : vertices)
-					{
-						center += vertex.Position;
-					}
-					vertexCount += vertices.Num();
-				}
-			}
-
-			// Calculate the average to find the center
-			if (vertexCount > 0)
-			{
-				center /= vertexCount;
-			}
-
-			// Get the local bounds of the grabbed component to determine its center
-			FBoxSphereBounds bounds = m_grabbedComponent->GetLocalBounds();
-			FVector sliceCenter = bounds.Origin; // Center of the sliced mesh
-
-			// Get the grab point location
-			FVector grabPointLocation = m_grabPoint->GetComponentLocation();
-
-			// Calculate the offset from the slice center to the grab point
-			FVector offset = sliceCenter;// center; // This should just be the slice center for X and Y
-
-			// Calculate the final position based on the grab point's location, keeping the Z from the grab point
-			FVector finalPos = FVector(grabPointLocation.X - (offset.X), grabPointLocation.Y - (offset.Y), grabPointLocation.Z - (center.Z *  5));
-
-			// Set the world rotation of the grabbed component
-			m_grabbedComponent->SetWorldRotation(FRotator(0,this->GetActorRotation().Yaw,0));
-
-			// Update the physics handle's target location
-			m_physicsHandle->SetTargetLocation(finalPos); // Set the target location to the grab point
+			HoldObject();
 		}
 	}
 	else {
@@ -133,7 +84,7 @@ void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 			{
 				if (Pair.Value.bShouldReturn)
 				{
-					GoToPosition(Pair, Pair.Value.bShouldReturn, DeltaTime, m_goToSpeed);
+					Pair.Value.bShouldReturn= GoToPosition(Pair, DeltaTime, m_goToSpeed);
 
 				}
 			}
@@ -266,8 +217,21 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 					
 						//otherCutProcMeshes.Add(otherHalfProcMesh);					//Slicing The Mesh
 						UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, m_box->GetMaterial(0));
-						if (!m_cutMeshes.Contains(otherHalfProcMesh)) {
+						/*if (!m_cutMeshes.Contains(otherHalfProcMesh)) {
 							m_cutMeshes.Add(otherHalfProcMesh);
+						}*/
+
+						if (!m_returningMeshes.Contains(otherHalfProcMesh)) {
+							_MeshReturnInfo meshReturnInfo;
+							meshReturnInfo.bShouldReturn = false;
+							meshReturnInfo.newLocation = otherHalfProcMesh->GetComponentLocation();
+							meshReturnInfo.newQuat = procMeshComp->GetComponentQuat();
+							meshReturnInfo.turnOnPhysics = false;
+							if (!m_cutMeshes.Contains(procMeshComp)) {
+								m_cutMeshes.Add(procMeshComp);
+							}
+							m_returningMeshes.Add(otherHalfProcMesh, meshReturnInfo);
+
 						}
 						if (procMeshComp->ComponentTags.Contains(grabTag) || procMeshComp->ComponentTags.Contains(cutTag)) {
 							otherHalfProcMesh->ComponentTags.Add(FName(cutTag));
@@ -309,15 +273,22 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 					procMeshComp->ComponentTags.Add(FName(cutTag));
 			
 					//Setting Up Mesh Returing and putting the mesh into a new location
-					_MeshReturnInfo meshReturnInfo;
-					meshReturnInfo.bShouldReturn = true;
-					meshReturnInfo.newLocation = procMeshComp->GetComponentLocation() + (m_box->GetUpVector() * ((upVector * projectedSize * 1.1f)));
-					meshReturnInfo.newQuat = procMeshComp->GetComponentQuat();
-					meshReturnInfo.turnOnPhysics = true;
-					if (!m_cutMeshes.Contains(procMeshComp)) {
-						m_cutMeshes.Add(procMeshComp);
+					if (!m_returningMeshes.Contains(procMeshComp)) {
+
+						_MeshReturnInfo meshReturnInfo;
+						meshReturnInfo.bShouldReturn = true;
+						meshReturnInfo.newLocation = procMeshComp->GetComponentLocation() + (m_box->GetUpVector() * ((upVector * projectedSize * 1.1f)));
+						meshReturnInfo.newQuat = procMeshComp->GetComponentQuat();
+						meshReturnInfo.turnOnPhysics = true;
+						m_returningMeshes.Add(procMeshComp, meshReturnInfo);
 					}
-					m_returningMeshes.Add(procMeshComp, meshReturnInfo);
+					else {
+						m_returningMeshes.Find(procMeshComp)->bShouldReturn = true;
+						m_returningMeshes.Find(procMeshComp)->newLocation = procMeshComp->GetComponentLocation() + (m_box->GetUpVector() * ((upVector * projectedSize * 1.1f)));
+						m_returningMeshes.Find(procMeshComp)->newQuat = procMeshComp->GetComponentQuat();
+						m_returningMeshes.Find(procMeshComp)->turnOnPhysics = true;
+					}
+					
 				}
 			}
 		}
@@ -426,19 +397,20 @@ void AUni_CuttingMeshes_Character::StartReturningAll()
 
 void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 {
-	int returnsCompleted = 0;
-	for (auto& cutMesh : m_cutMeshes) {
 
-		UProceduralMeshComponent* procMesh = cutMesh;
-		FVector goToLocation = procMesh->GetAttachmentRootActor()->GetActorLocation();
+	int returnsCompleted = 0;
+	for (auto& Pair : m_returningMeshes) {
+
+		UProceduralMeshComponent* procMesh = Pair.Key;
+		FVector goToLocation = Pair.Value.newLocation;
 		FQuat goToRotation = procMesh->GetAttachmentRootActor()->GetActorQuat();
 		procMesh->SetSimulatePhysics(false);
 
 		FVector currentLocation = procMesh->GetComponentLocation();
 		const FQuat currentRotation = procMesh->GetComponentQuat();
 
-		FVector newLocation = cutMesh->GetComponentLocation();
-		FQuat newRotation = cutMesh->GetComponentQuat();
+		FVector newLocation = Pair.Key->GetComponentLocation();
+		FQuat newRotation = Pair.Key->GetComponentQuat();
 		
 		const FQuat targetRotation = FQuat(goToRotation);
 		float angularDistance = currentRotation.AngularDistance(targetRotation);
@@ -447,51 +419,65 @@ void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 
 		// Define a threshold for rotation completion (in radians)
 		const float rotationThreshold = FMath::DegreesToRadians(0.5f); // Adjust as need
-
-		
-		
-			
-			
-			
 			//if (angularDistance > rotationThreshold) {
 			//}
 			//else {
-		if (FMath::Abs(newLocation.Z - goToLocation.Z) > 0.5f ) // Adjust the threshold as needed
-		{
-			newLocation.Z = FMath::Lerp(currentLocation.Z, goToLocation.Z, dt * m_goToSpeed);
-		}
-				else if (FMath::Abs(newLocation.X - goToLocation.X) > 0.25f)
-				{
-					newLocation.X = FMath::Lerp(currentLocation.X, goToLocation.X, dt * m_goToSpeed);
-				}
-
-				else if (FMath::Abs(newLocation.Y - goToLocation.Y) > 0.25f)
-				{
-					newLocation.Y = FMath::Lerp(currentLocation.Y, goToLocation.Y, dt * m_goToSpeed);
-				}
-		newRotation = FQuat::Slerp(currentRotation, FQuat(goToRotation), dt * m_goToSpeed/3);
-
-				
-
-		procMesh->SetWorldRotation(newRotation);
-		procMesh->SetWorldLocation(newLocation);
-
-		
-		if (FVector::Dist(newLocation, goToLocation) < 1.0f) // Adjust the threshold as needed
-		{
-			returnsCompleted++;
+		if (Pair.Value.finalReturn) {
 			// Optionally stop further movement
 			procMesh->SetWorldLocation(goToLocation);
 			procMesh->SetWorldRotation(goToRotation);
-			
+			FVector finalGoToLocation = procMesh->GetAttachmentRootActor()->GetActorLocation();
+			FVector finalLocation = procMesh->GetComponentLocation();
+			finalLocation = FMath::Lerp(currentLocation, finalGoToLocation, dt * m_goToSpeed);
+			procMesh->SetWorldLocation(finalLocation);
+
+
+			if (FVector::Dist(currentLocation, finalGoToLocation) < 1.0f) 
+			{
+				procMesh->SetWorldLocation(finalGoToLocation);
+				returnsCompleted++;
+
+			}
 		}
+		else {
+
+			if (FMath::Abs(newLocation.Z - goToLocation.Z) > 0.5f )
+			{
+				newLocation.Z = FMath::Lerp(currentLocation.Z, goToLocation.Z, dt * m_goToSpeed);
+			}
+					else if (FMath::Abs(newLocation.X - goToLocation.X) > 0.25f)
+					{
+						newLocation.X = FMath::Lerp(currentLocation.X, goToLocation.X, dt * m_goToSpeed);
+					}
+
+					else if (FMath::Abs(newLocation.Y - goToLocation.Y) > 0.25f)
+					{
+						newLocation.Y = FMath::Lerp(currentLocation.Y, goToLocation.Y, dt * m_goToSpeed);
+					}
+			newRotation = FQuat::Slerp(currentRotation, FQuat(goToRotation), dt * m_goToSpeed/3);
+
+				
+
+			procMesh->SetWorldRotation(newRotation);
+			procMesh->SetWorldLocation(newLocation);
+
+		
+			if (FVector::Dist(newLocation, goToLocation) < 1.0f) 
+			{
+				// Optionally stop further movement
+				procMesh->SetWorldLocation(goToLocation);
+				procMesh->SetWorldRotation(goToRotation);
+				Pair.Value.finalReturn = true;
+			}
+		}
+
 	}
-	if (returnsCompleted == m_cutMeshes.Num()) {
+	if (returnsCompleted == m_returningMeshes.Num()) {
 		canCut = true;
 		m_returnAll = false;
 		TArray<AActor*> allOwners;
-		for (auto& cutMesh : m_cutMeshes) {
-			AActor* meshsActor = cutMesh->GetAttachmentRootActor();
+		for (auto& cutMesh : m_returningMeshes) {
+			AActor* meshsActor = cutMesh.Key->GetAttachmentRootActor();
 			if (!allOwners.Contains(meshsActor)) {
 				allOwners.Add(meshsActor);
 			}
@@ -527,7 +513,7 @@ void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 
 }
 
-void AUni_CuttingMeshes_Character::GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returnPair, bool &shouldReturn, float dt, float speed)
+bool AUni_CuttingMeshes_Character::GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returnPair, float dt, float speed)
 {
 	UProceduralMeshComponent* procMesh = returnPair.Key;
 	FVector goToLocation = returnPair.Value.newLocation;
@@ -552,8 +538,11 @@ void AUni_CuttingMeshes_Character::GoToPosition(TPair<UProceduralMeshComponent*,
 		if (returnPair.Value.turnOnPhysics == true) {
 			procMesh->SetSimulatePhysics(true);
 		}
-		shouldReturn = false;
+		return false;
+
 	}
+	return true;
+
 }
 
 #pragma endregion
@@ -565,7 +554,7 @@ void AUni_CuttingMeshes_Character::Grab()
 
 		//Getting the start and end location of the raycast
 		FVector start = m_cameraComponent->GetComponentLocation();
-		FVector end = start + m_cameraComponent->GetForwardVector() * grabRange;
+		FVector end = start + m_cameraComponent->GetForwardVector() * m_grabRange;
 		FHitResult hitResult;
 		FCollisionQueryParams collisionParams;
 		collisionParams.AddIgnoredActor(this);
@@ -584,6 +573,7 @@ void AUni_CuttingMeshes_Character::Grab()
 					if (procMeshComp->ComponentTags.Contains(grabTag)) {
 						//adding the object to the ocrrect variables as well as the physics handle
 						m_grabbedComponent = procMeshComp;
+						m_grabbedComponent->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 						m_holding = true;
 						m_grabbedComponent->WakeRigidBody();
 						m_physicsHandle->GrabComponentAtLocation(procMeshComp, NAME_None, procMeshComp->GetComponentLocation());
@@ -594,10 +584,76 @@ void AUni_CuttingMeshes_Character::Grab()
 	}
 }
 
+void AUni_CuttingMeshes_Character::HoldObject()
+{
+	FVector center = FVector::ZeroVector;
+	int32 vertexCount = 0;
+
+	// Loop through all sections (assuming you want the first section here)
+	UProceduralMeshComponent* procMeshComp = Cast<UProceduralMeshComponent>(m_grabbedComponent);
+	// Loop through all the sections manually if you know the section count
+	for (int32 sectionIndex = 0; sectionIndex < procMeshComp->GetNumSections(); sectionIndex++)
+	{
+		const FProcMeshSection* section = procMeshComp->GetProcMeshSection(sectionIndex);
+		if (section)
+		{
+			// Get the vertices from the section
+			const TArray<FProcMeshVertex>& vertices = section->ProcVertexBuffer;
+
+
+			// Get the vertices from the section
+
+			// Sum up the vertex positions
+			for (const FProcMeshVertex& vertex : vertices)
+			{
+				center += vertex.Position;
+			}
+			vertexCount += vertices.Num();
+		}
+	}
+
+	// Calculate the average to find the center
+	if (vertexCount > 0)
+	{
+		center /= vertexCount;
+	}
+
+	// Get the local bounds of the grabbed component to determine its center
+	FBoxSphereBounds bounds = m_grabbedComponent->GetStreamingBounds();
+	FVector sliceCenter = bounds.GetBox().GetCenter(); // Center of the sliced mesh
+
+	// Get the grab point location
+	FVector grabPointLocation = m_grabPoint->GetComponentLocation();
+
+	// Calculate the offset from the slice center to the grab point
+	FVector offset = sliceCenter;// center; // This should just be the slice center for X and Y
+
+	// Calculate the final position based on the grab point's location, keeping the Z from the grab point
+	FVector localOffset = FVector((grabPointLocation.X - offset.X), (grabPointLocation.Y - offset.Y), grabPointLocation.Z - (offset.Z + center.Z));
+
+	// Rotate the local offset based on the actor's rotation
+	FVector rotatedOffset = FQuat(FRotator(0, this->GetActorRotation().Yaw, 0)) * localOffset;
+
+	rotatedOffset.X = rotatedOffset.X / m_holdingOffSet;
+	rotatedOffset.Y = rotatedOffset.Y / m_holdingOffSet;
+	rotatedOffset.Z = localOffset.Z;
+
+	// Calculate the final position
+	FVector finalPos = grabPointLocation + (rotatedOffset);
+
+
+	// Set the world rotation of the grabbed component
+	m_grabbedComponent->SetWorldRotation(FRotator(0, this->GetActorRotation().Yaw, 0));
+
+	// Update the physics handle's target location
+	m_physicsHandle->SetTargetLocation(finalPos); // Set the target location to the grab point
+}
+
 void AUni_CuttingMeshes_Character::StopGrabbing() {
 	if (m_grabbedComponent) {
 		//Removes the component from the physics ahandle and stops its velocity
 		m_physicsHandle->ReleaseComponent();
+		m_grabbedComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		m_grabbedComponent->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		m_grabbedComponent->SetPhysicsAngularVelocityInDegrees(FVector(0,0,0), false, NAME_None);
 		m_grabbedComponent = nullptr;

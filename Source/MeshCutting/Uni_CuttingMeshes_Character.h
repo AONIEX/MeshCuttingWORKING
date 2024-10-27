@@ -32,6 +32,9 @@ class MESHCUTTING_API AUni_CuttingMeshes_Character : public ACharacter
 		FQuat newQuat;
 		UPROPERTY()
 		bool turnOnPhysics;
+
+		UPROPERTY()
+		bool finalReturn = false;
 		// Constructor
 		_MeshReturnInfo(): bShouldReturn(false), newLocation(FVector::ZeroVector), newQuat(FQuat::Identity) ,turnOnPhysics(false) {}
 	};
@@ -103,7 +106,8 @@ protected:
 	UCameraComponent* m_cameraComponent;
 
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	float grabRange = 5000;
+	float m_grabRange = 5000;
+	float m_holdingOffSet = 100;
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -116,8 +120,9 @@ public:
 	void SetUpDebug();
 	void StartReturningAll();
 	void ReturnAllToOriginalPosition(float dt);
-	void GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returningCompMap,bool &shouldReturn,float dt, float speed);
+	bool GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returningCompMap,float dt, float speed);
 	void Grab();
+	void HoldObject();
 	void StopGrabbing();
 
 
