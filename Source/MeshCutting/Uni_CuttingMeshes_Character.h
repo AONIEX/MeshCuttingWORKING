@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Components/BoxComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "ProceduralMeshComponent.h"
 #include "Components/ArrowComponent.h"
 #include "Camera/CameraComponent.h"
@@ -84,8 +85,10 @@ protected:
 	bool m_gateOpen = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Returining")
 	float m_goToSpeed = 3;
-	UPROPERTY(BlueprintReadOnly, Category = "Mesh Cutting")
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	UBoxComponent* m_box;
+	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
+	UStaticMeshComponent* m_boxMesh;
 	UPROPERTY(EditAnywhere, Category = "Components")
 	UActorComponent* m_hitComponent;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
@@ -108,6 +111,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	float m_grabRange = 5000;
 	float m_holdingOffSet = 100;
+
+
+	bool m_debug = false;
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -117,7 +123,7 @@ public:
 	void Start_Cutting();
 	void Stop_Cutting();
 	void SetUpCutting();
-	void SetUpDebug();
+	void SetUpBoxAndDebug();
 	void StartReturningAll();
 	void ReturnAllToOriginalPosition(float dt);
 	bool GoToPosition(TPair<UProceduralMeshComponent*, _MeshReturnInfo> returningCompMap,float dt, float speed);

@@ -19,6 +19,16 @@ AUni_CuttingMeshes_Character::AUni_CuttingMeshes_Character()
 	m_box->SetGenerateOverlapEvents(true);
 	m_box->RegisterComponent();
 
+	m_boxMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
+	m_boxMesh->SetupAttachment(m_box);
+	m_boxMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
+	if (MeshAsset.Succeeded())
+	{
+		m_boxMesh->SetStaticMesh(MeshAsset.Object);
+	}
+
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -68,7 +78,7 @@ void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 	if (m_gateOpen) {
 
 		SetUpCutting();
-		SetUpDebug();
+		SetUpBoxAndDebug();
 		//Visualisng DebugBox And Cut Area
 	}
 
@@ -143,7 +153,8 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 			//
 			//DRAWING THE CUTOUT BOX IN DEBUG FOR TESTING - START
 			//Drawing the debug box with the quat(Quaternion) for the rotation
-			DrawDebugBox(GetWorld(), m_box->GetComponentLocation(), m_box->GetScaledBoxExtent(), m_box->GetComponentQuat(), FColor::Purple, false, 3.0f, 0, 4);
+			if (m_debug)
+				DrawDebugBox(GetWorld(), m_box->GetComponentLocation(), m_box->GetScaledBoxExtent(), m_box->GetComponentQuat(), FColor::Purple, false, 3.0f, 0, 4);
 			//DRAWING THE CUTOUT BOX IN DEBUG FOR TESTING - END
 			//
 			TArray<UPrimitiveComponent*> overLappingComponents;
@@ -269,6 +280,9 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 					// Assuming we want to get the size projected in the direction of the up vector
 					float projectedSize = FVector::DotProduct(boundingBox.GetSize(), upVector);
 					m_box->SetBoxExtent(m_box->GetScaledBoxExtent() * 0.95f, true);
+					m_boxMesh->SetRelativeScale3D(m_box->GetScaledBoxExtent() / 50.0f); //Dividing by 50 causes it to be the same size of the box extenet
+
+
 					procMeshComp->ComponentTags.Add(FName(grabTag));
 					procMeshComp->ComponentTags.Add(FName(cutTag));
 			
@@ -294,6 +308,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 		}
 		m_isCutting = false;
 		m_box->SetBoxExtent(FVector(0, 0, 0), true);
+		m_boxMesh->SetRelativeScale3D(m_box->GetScaledBoxExtent()); 
 		m_box->SetCollisionProfileName(TEXT("NoCollision"), true);
 	}
 	//}
@@ -314,7 +329,8 @@ void AUni_CuttingMeshes_Character::SetUpCutting()
 	collisionParams.AddIgnoredActor(this);
 	if (GetWorld()->LineTraceSingleByChannel(hitResult, start, end, ECC_Visibility, collisionParams))
 	{
-		DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Green, false, 0.1f, 0, 1.0f);
+		if (m_debug)
+			DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Green, false, 0.1f, 0, 1.0f);
 		// Check if something was hit
 		if (hitResult.GetActor())
 		{
@@ -363,7 +379,7 @@ void AUni_CuttingMeshes_Character::SetUpCutting()
 	}
 }
 
-void AUni_CuttingMeshes_Character::SetUpDebug()
+void AUni_CuttingMeshes_Character::SetUpBoxAndDebug()
 {
 	if (m_hitActorCutable) {
 		m_box->SetWorldLocationAndRotation(m_boxOrigin, m_boxRotation);
@@ -374,7 +390,11 @@ void AUni_CuttingMeshes_Character::SetUpDebug()
 		new2Transform.InverseTransformPosition(newTransform.GetLocation());
 		FVector newLocation = FVector(FMath::Abs(new2Transform.GetRelativeTransform(newTransform).GetLocation().X), FMath::Abs(new2Transform.GetRelativeTransform(newTransform).GetLocation().Y), m_boxWidth);
 		m_box->SetBoxExtent(newLocation, true);
-		DrawDebugBox(GetWorld(), m_box->GetComponentLocation(), m_box->GetScaledBoxExtent(), m_box->GetComponentQuat(), FColor::Green, false, 0, 0, 10);
+		FVector newBoxMeshScale = m_box->GetScaledBoxExtent() / 50.0f;
+		m_boxMesh->SetRelativeScale3D(FVector(FMath::Max(newBoxMeshScale.X,0.2f),FMath::Max(newBoxMeshScale.Y,0.2f),newBoxMeshScale.Z)); //Dividing by 50 causes it to be the same size of the box extenet
+
+		if(m_debug)
+			DrawDebugBox(GetWorld(), m_box->GetComponentLocation(), m_box->GetScaledBoxExtent(), m_box->GetComponentQuat(), FColor::Green, false, 0, 0, 10);
 	}	
 	//NEXT PART (CURRENTLY WORKING ON THIS)
 }
@@ -561,7 +581,8 @@ void AUni_CuttingMeshes_Character::Grab()
 		if (GetWorld()->LineTraceSingleByChannel(hitResult, start, end, ECC_Visibility, collisionParams))
 		{
 			//For Testing
-			DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Blue, false, 0.1f, 0, 1.0f);
+			if (m_debug)
+				DrawDebugLine(GetWorld(), start, hitResult.Location, FColor::Blue, false, 0.1f, 0, 1.0f);
 			
 			if (hitResult.GetComponent())
 			{
