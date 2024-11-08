@@ -25,7 +25,7 @@ class MESHCUTTING_API AUni_CuttingMeshes_Character : public ACharacter
 	{
 
 		UPROPERTY()
-		bool bShouldReturn;
+		bool goToPosition;
 
 		UPROPERTY()
 		FVector newLocation;
@@ -35,9 +35,9 @@ class MESHCUTTING_API AUni_CuttingMeshes_Character : public ACharacter
 		bool turnOnPhysics;
 
 		UPROPERTY()
-		bool finalReturn = false;
+		bool returnToOriginalPos = false;
 		// Constructor
-		_MeshReturnInfo(): bShouldReturn(false), newLocation(FVector::ZeroVector), newQuat(FQuat::Identity) ,turnOnPhysics(false) {}
+		_MeshReturnInfo(): goToPosition(false), newLocation(FVector::ZeroVector), newQuat(FQuat::Identity) ,turnOnPhysics(false) {}
 	};
 
 public:
@@ -84,7 +84,7 @@ protected:
 	//open and closing gate
 	bool m_gateOpen = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Returining")
-	float m_goToSpeed = 3;
+	float m_goToSpeed = 2;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	UBoxComponent* m_box;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
