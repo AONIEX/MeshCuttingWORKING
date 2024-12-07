@@ -11,16 +11,16 @@ AUni_CuttingMeshes_Character::AUni_CuttingMeshes_Character()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 // Create the Box Component
-	m_box = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
+	m_cuttingBox = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
 
 	//RootComponent = box;
 	// Set the size of the box
-	m_box->SetBoxExtent(FVector(32.0f, 32.0f, 32.0f));
-	m_box->SetGenerateOverlapEvents(true);
-	m_box->RegisterComponent();
+	m_cuttingBox->SetBoxExtent(FVector(32.0f, 32.0f, 32.0f));
+	m_cuttingBox->SetGenerateOverlapEvents(true);
+	m_cuttingBox->RegisterComponent();
 
 	m_boxMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
-	m_boxMesh->SetupAttachment(m_box);
+	m_boxMesh->SetupAttachment(m_cuttingBox);
 	m_boxMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
@@ -72,7 +72,7 @@ AUni_CuttingMeshes_Character::AUni_CuttingMeshes_Character()
 void AUni_CuttingMeshes_Character::BeginPlay()
 {
 	Super::BeginPlay();
-	m_box->SetCollisionProfileName(TEXT("OverlapAll"));
+	m_cuttingBox->SetCollisionProfileName(TEXT("OverlapAll"));
 	m_isCutting = false;
 
 }
@@ -81,7 +81,7 @@ void AUni_CuttingMeshes_Character::BeginPlay()
 void AUni_CuttingMeshes_Character::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (m_gateOpen) {//sets up the cutting and the box
+	if (m_cuttingGateOpen) {//sets up the cutting and the box
 
 		SetUpCutting();
 		SetUpBoxAndDebug();
@@ -129,9 +129,9 @@ void AUni_CuttingMeshes_Character::SetupPlayerInputComponent(UInputComponent* Pl
 void AUni_CuttingMeshes_Character::Start_Cutting()
 {
 	if (canCut) {
-		m_gateOpen = true;
+		m_cuttingGateOpen = true;
 		//if (pickedUp) {
-		m_box->SetCollisionProfileName(TEXT("OverlapAll"));
+		m_cuttingBox->SetCollisionProfileName(TEXT("OverlapAll"));
 		//}
 		// --LOOK INTO--
 		////Might also need to update OverLaps
@@ -144,18 +144,16 @@ void AUni_CuttingMeshes_Character::Start_Cutting()
 void AUni_CuttingMeshes_Character::Stop_Cutting()
 {
 	if (canCut) {
-		m_gateOpen = false;
-
-		//if (pickedUp) {
+		m_cuttingGateOpen = false;
 
 		UE_LOG(LogTemp, Warning, TEXT("Stop_Cutting called"));
 		m_hitActorCutable = false;
 
 		if (m_isCutting) {
 			if (m_debug)//Drawing the box For Testing
-				DrawDebugBox(GetWorld(), m_box->GetComponentLocation(), m_box->GetScaledBoxExtent(), m_box->GetComponentQuat(), FColor::Purple, false, 3.0f, 0, 4);
+				DrawDebugBox(GetWorld(), m_cuttingBox->GetComponentLocation(), m_cuttingBox->GetScaledBoxExtent(), m_cuttingBox->GetComponentQuat(), FColor::Purple, false, 3.0f, 0, 4);
 			TArray<UPrimitiveComponent*> overLappingComponents;
-			m_box->GetOverlappingComponents(overLappingComponents);
+			m_cuttingBox->GetOverlappingComponents(overLappingComponents);
 
 			//cuts all of the procedural mesh's that the box overlapped with
 			for (UPrimitiveComponent* comp : overLappingComponents)
@@ -166,7 +164,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 				{
 					for (int i = 0; i < 4; i++)
 					{
-						FVector planePosition = m_box->GetComponentLocation();
+						FVector planePosition = m_cuttingBox->GetComponentLocation();
 						FVector planeNormal;
 						FVector directionVector;
 
@@ -176,44 +174,44 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 							UE_LOG(LogTemp, Warning, TEXT("SLICED LEFT"));
 
 							// moving the slicing plane left, With a normal pointing right
-							directionVector = m_box->GetRightVector();
-							directionVector *= FMath::Max(m_box->GetScaledBoxExtent().Y, 10); //T0 Stop crashing 
+							directionVector = m_cuttingBox->GetRightVector();
+							directionVector *= FMath::Max(m_cuttingBox->GetScaledBoxExtent().Y, 10); //T0 Stop crashing 
 							planePosition -= directionVector;
 
-							planeNormal = m_box->GetRightVector();
+							planeNormal = m_cuttingBox->GetRightVector();
 
 							break;
 						case 1:
 							UE_LOG(LogTemp, Warning, TEXT("SLICED FORWARD"));
 
 							// moving the slicing plane forward, with a  normal pointing backward
-							directionVector = m_box->GetForwardVector();
-							directionVector *= FMath::Max(m_box->GetScaledBoxExtent().X, 10); //T0 Stop crashing 
+							directionVector = m_cuttingBox->GetForwardVector();
+							directionVector *= FMath::Max(m_cuttingBox->GetScaledBoxExtent().X, 10); //T0 Stop crashing 
 							planePosition += directionVector;
 
-							planeNormal = -m_box->GetForwardVector();
+							planeNormal = -m_cuttingBox->GetForwardVector();
 
 							break;
 						case 2:
 							UE_LOG(LogTemp, Warning, TEXT("SLICED LEFT"));
 
 							// moving the slicing plane right, with a normal pointing left
-							directionVector = m_box->GetRightVector();
-							directionVector *= FMath::Max(m_box->GetScaledBoxExtent().Y, 10); //T0 Stop crashing 
+							directionVector = m_cuttingBox->GetRightVector();
+							directionVector *= FMath::Max(m_cuttingBox->GetScaledBoxExtent().Y, 10); //T0 Stop crashing 
 							planePosition += directionVector;
 
-							planeNormal = -m_box->GetRightVector();
+							planeNormal = -m_cuttingBox->GetRightVector();
 
 							break;
 						case 3:
 							UE_LOG(LogTemp, Warning, TEXT("SLICED FORWARD"));
 
 							// moving the slicing plane backward, with a normal pointing forward
-							directionVector = m_box->GetForwardVector();
-							directionVector *= FMath::Max(m_box->GetScaledBoxExtent().X, 10); //T0 Stop crashing 
+							directionVector = m_cuttingBox->GetForwardVector();
+							directionVector *= FMath::Max(m_cuttingBox->GetScaledBoxExtent().X, 10); //T0 Stop crashing 
 							planePosition -= directionVector;
 
-							planeNormal = m_box->GetForwardVector();
+							planeNormal = m_cuttingBox->GetForwardVector();
 
 							break;
 
@@ -223,7 +221,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 						}
 						UProceduralMeshComponent* otherHalfProcMesh = nullptr;
 					
-						UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, m_box->GetMaterial(0));
+						UKismetProceduralMeshLibrary::SliceProceduralMesh(procMeshComp, planePosition, planeNormal, true, otherHalfProcMesh, EProcMeshSliceCapOption::CreateNewSectionForCap, m_cuttingBox->GetMaterial(0));
 
 						if (!m_returningMeshes.Contains(otherHalfProcMesh)) {
 							//adds the  mesh to the returning meshes without telling it to move position
@@ -267,12 +265,12 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 					else {
 						boundingBox = procMeshComp->GetStreamingBounds();
 					}
-					FVector upVector = m_box->GetUpVector();
+					FVector upVector = m_cuttingBox->GetUpVector();
 
 					// getting the size projected in the direction of the up vector
 					float projectedSize = FVector::DotProduct(boundingBox.GetSize(), upVector);
-					m_box->SetBoxExtent(m_box->GetScaledBoxExtent() * 0.95f, true);
-					m_boxMesh->SetRelativeScale3D(m_box->GetScaledBoxExtent() / 50.0f); //Dividing by 50 causes it to be the same size of the box extenet
+					m_cuttingBox->SetBoxExtent(m_cuttingBox->GetScaledBoxExtent() * 0.95f, true);
+					m_boxMesh->SetRelativeScale3D(m_cuttingBox->GetScaledBoxExtent() / 50.0f); //Dividing by 50 causes it to be the same size of the box extenet
 
 
 					procMeshComp->ComponentTags.Add(FName(grabTag));
@@ -283,7 +281,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 						//adding to the returning meshes and setting up the variables
 						_MeshReturnInfo meshReturnInfo;
 						meshReturnInfo.goToPosition = true;
-						meshReturnInfo.newLocation = procMeshComp->GetComponentLocation() + (m_box->GetUpVector() * ((upVector * projectedSize * 1.1f)));
+						meshReturnInfo.newLocation = procMeshComp->GetComponentLocation() + (m_cuttingBox->GetUpVector() * ((upVector * projectedSize * 1.1f)));
 						meshReturnInfo.newQuat = procMeshComp->GetComponentQuat();
 						meshReturnInfo.turnOnPhysics = true;
 						m_returningMeshes.Add(procMeshComp, meshReturnInfo);
@@ -291,7 +289,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 					else {
 						//setting up the variables to move this to a new position
 						m_returningMeshes.Find(procMeshComp)->goToPosition = true;
-						m_returningMeshes.Find(procMeshComp)->newLocation = procMeshComp->GetComponentLocation() + (m_box->GetUpVector() * ((upVector * projectedSize * 1.1f)));
+						m_returningMeshes.Find(procMeshComp)->newLocation = procMeshComp->GetComponentLocation() + (m_cuttingBox->GetUpVector() * ((upVector * projectedSize * 1.1f)));
 						m_returningMeshes.Find(procMeshComp)->newQuat = procMeshComp->GetComponentQuat();
 						m_returningMeshes.Find(procMeshComp)->turnOnPhysics = true;
 					}
@@ -300,18 +298,18 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 			}
 		}
 		m_isCutting = false;
-		m_box->SetBoxExtent(FVector(0, 0, 0), true);
-		m_boxMesh->SetRelativeScale3D(m_box->GetScaledBoxExtent()); 
-		m_box->SetCollisionProfileName(TEXT("NoCollision"), true);
+		m_cuttingBox->SetBoxExtent(FVector(0, 0, 0), true);
+		m_boxMesh->SetRelativeScale3D(m_cuttingBox->GetScaledBoxExtent()); 
+		m_cuttingBox->SetCollisionProfileName(TEXT("NoCollision"), true);
 	}
 }
 #pragma endregion
-#pragma region SetUps
+#pragma region Cutting SetUps
 void AUni_CuttingMeshes_Character::SetUpCutting()
 {
 
 	FVector start = m_cameraComponent->GetComponentLocation();
-	FVector end = start + m_cameraComponent->GetForwardVector() * 5000;
+	FVector end = start + m_cameraComponent->GetForwardVector() * m_cutAndGrabRange;
 	FHitResult hitResult;
 	FCollisionQueryParams collisionParams;
 	collisionParams.AddIgnoredActor(this);
@@ -362,7 +360,7 @@ void AUni_CuttingMeshes_Character::SetUpBoxAndDebug()
 {
 	//Setting up the box based on th ebox origin and rotation
 	if (m_hitActorCutable) {
-		m_box->SetWorldLocationAndRotation(m_boxOrigin, m_boxRotation);
+		m_cuttingBox->SetWorldLocationAndRotation(m_boxOrigin, m_boxRotation);
 		//Maketransform
 		FTransform newTransform =  FTransform(m_boxRotation, m_boxOrigin, FVector(1,1,1));
 		FTransform new2Transform = FTransform(m_boxRotation, m_lastImpactPoint, FVector(1, 1, 1));
@@ -370,13 +368,13 @@ void AUni_CuttingMeshes_Character::SetUpBoxAndDebug()
 		new2Transform.InverseTransformPosition(newTransform.GetLocation());
 		//Getting the new location based off its current location and the last impact point
 		FVector newLocation = FVector(FMath::Abs(new2Transform.GetRelativeTransform(newTransform).GetLocation().X), FMath::Abs(new2Transform.GetRelativeTransform(newTransform).GetLocation().Y), m_boxWidth);
-		m_box->SetBoxExtent(newLocation, true);
+		m_cuttingBox->SetBoxExtent(newLocation, true);
 
-		FVector newBoxMeshScale = m_box->GetScaledBoxExtent() / 50.0f;//Dividing by 50 causes it to be the same size of the box extenet
+		FVector newBoxMeshScale = m_cuttingBox->GetScaledBoxExtent() / 50.0f;//Dividing by 50 causes it to be the same size of the box extenet
 		m_boxMesh->SetRelativeScale3D(FVector(FMath::Max(newBoxMeshScale.X,0.2f),FMath::Max(newBoxMeshScale.Y,0.2f),newBoxMeshScale.Z)); 
 
 		if(m_debug)
-			DrawDebugBox(GetWorld(), m_box->GetComponentLocation(), m_box->GetScaledBoxExtent(), m_box->GetComponentQuat(), FColor::Green, false, 0, 0, 10);
+			DrawDebugBox(GetWorld(), m_cuttingBox->GetComponentLocation(), m_cuttingBox->GetScaledBoxExtent(), m_cuttingBox->GetComponentQuat(), FColor::Green, false, 0, 0, 10);
 	}	
 }
 
@@ -551,7 +549,7 @@ void AUni_CuttingMeshes_Character::Grab()
 
 		//Getting the start and end location of the raycast
 		FVector start = m_cameraComponent->GetComponentLocation();
-		FVector end = start + m_cameraComponent->GetForwardVector() * m_grabRange;
+		FVector end = start + m_cameraComponent->GetForwardVector() * m_cutAndGrabRange;
 		FHitResult hitResult;
 		FCollisionQueryParams collisionParams;
 		collisionParams.AddIgnoredActor(this);

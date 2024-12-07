@@ -82,11 +82,11 @@ protected:
 
 	//TArray<UProceduralMeshComponent*> otherCutProcMeshes;
 	//open and closing gate
-	bool m_gateOpen = false;
+	bool m_cuttingGateOpen = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Returining")
 	float m_goToSpeed = 2;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	UBoxComponent* m_box;
+	UBoxComponent* m_cuttingBox;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	UStaticMeshComponent* m_boxMesh;
 	UPROPERTY(EditAnywhere, Category = "Components")
@@ -109,7 +109,7 @@ protected:
 	UCameraComponent* m_cameraComponent;
 
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	float m_grabRange = 5000;
+	float m_cutAndGrabRange = 5000;
 	float m_holdingOffSet = 100;
 
 
