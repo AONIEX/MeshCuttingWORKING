@@ -59,7 +59,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	TSubclassOf<AActor> m_procMeshRespawn;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
-	bool canCut = true;
+	bool allowedToCut = true;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")
 	bool m_isCutting = false;
 	UPROPERTY(EditAnywhere, Category = "Mesh Cutting")

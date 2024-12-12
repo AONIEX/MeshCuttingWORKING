@@ -128,7 +128,7 @@ void AUni_CuttingMeshes_Character::SetupPlayerInputComponent(UInputComponent* Pl
 #pragma region StartCutting
 void AUni_CuttingMeshes_Character::Start_Cutting()
 {
-	if (canCut) {
+	if (allowedToCut) {
 		m_cuttingGateOpen = true;
 		//if (pickedUp) {
 		m_cuttingBox->SetCollisionProfileName(TEXT("OverlapAll"));
@@ -143,7 +143,7 @@ void AUni_CuttingMeshes_Character::Start_Cutting()
 
 void AUni_CuttingMeshes_Character::Stop_Cutting()
 {
-	if (canCut) {
+	if (allowedToCut) {
 		m_cuttingGateOpen = false;
 
 		UE_LOG(LogTemp, Warning, TEXT("Stop_Cutting called"));
@@ -171,7 +171,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 						switch (i)
 						{
 						case 0:
-							UE_LOG(LogTemp, Warning, TEXT("SLICED LEFT"));
+							UE_LOG(LogTemp, Warning, TEXT("SLICED Right"));
 
 							// moving the slicing plane left, With a normal pointing right
 							directionVector = m_cuttingBox->GetRightVector();
@@ -204,7 +204,7 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 
 							break;
 						case 3:
-							UE_LOG(LogTemp, Warning, TEXT("SLICED FORWARD"));
+							UE_LOG(LogTemp, Warning, TEXT("SLICED Backward"));
 
 							// moving the slicing plane backward, with a normal pointing forward
 							directionVector = m_cuttingBox->GetForwardVector();
@@ -230,14 +230,14 @@ void AUni_CuttingMeshes_Character::Stop_Cutting()
 							meshReturnInfo.newLocation = otherHalfProcMesh->GetComponentLocation();
 							meshReturnInfo.newQuat = procMeshComp->GetComponentQuat();
 							meshReturnInfo.turnOnPhysics = false;
-							if (!m_cutMeshes.Contains(procMeshComp)) {
+							/*if (!m_cutMeshes.Contains(procMeshComp)) {
 								m_cutMeshes.Add(procMeshComp);
-							}
+							}*/
 							m_returningMeshes.Add(otherHalfProcMesh, meshReturnInfo);
 
 						}
 						if (procMeshComp->ComponentTags.Contains(grabTag) || procMeshComp->ComponentTags.Contains(cutTag)) {
-							//adds the cut tag to the component if th mesh it waas cut from was cut
+							//adds the cut tag to the component if the mesh it waas cut from was cut
 							otherHalfProcMesh->ComponentTags.Add(FName(cutTag));
 						}
 
@@ -390,7 +390,7 @@ void AUni_CuttingMeshes_Character::StartReturningAll()
 				Pair.Value.goToPosition = false;
 		}
 		m_returnAll = true;
-		canCut = false;
+		allowedToCut = false;
 	}
 }
 
@@ -467,7 +467,7 @@ void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 
 	}
 	if (returnsCompleted == m_returningMeshes.Num()) {//If all the cut meshes are in there original location reset the mesh
-		canCut = true;
+		allowedToCut = true;
 		m_returnAll = false;
 		TArray<AActor*> allOwners;
 		for (auto& cutMesh : m_returningMeshes) {//getting all the actors of the cut meshes
@@ -503,7 +503,7 @@ void AUni_CuttingMeshes_Character::ReturnAllToOriginalPosition(float dt)
 		}
 		
 		m_returningMeshes.Empty();
-		m_cutMeshes.Empty();
+		//m_cutMeshes.Empty();
 	}
 
 }
